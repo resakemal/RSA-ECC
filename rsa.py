@@ -221,6 +221,12 @@ def md5(text):
     h.update(text)
     return h.hexdigest()
 
+def keygen(filename_pub, filename_priv, length = 32):
+    rsa = RSA(key_length=length)
+    rsa.generate_key()
+    rsa.priv.to_file(filename_priv)
+    rsa.pub.to_file(filename_pub)
+
 if __name__ == '__main__':
 
     #################################

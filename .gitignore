@@ -1,6 +1,9 @@
 # testing file
 test.py
 
+*.pub
+*.priv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
