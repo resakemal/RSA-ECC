@@ -4,6 +4,8 @@ import math
 import sys
 import base64
 import hashlib
+from bitstring import BitArray
+from pprint import pprint
 
 class RSA():
     def __init__(self, key_length = 32):
@@ -99,10 +101,16 @@ class RSA():
         self.n = RSA_priv.n
 
 class RSAPrivateKey():
-    def __init__(self, e=0, d=0, n=0):
+    def __init__(self, e=0, d=0, n=0, from_file = False, filename = None):
         self.e = e
         self.d = d
         self.n = n
+
+        if from_file and filename != None:
+            content = open(filename, 'r').read().split("+")
+            self.e = int(content[0], 16)
+            self.d = int(content[1], 16)
+            self.n = int(content[2], 16)
 
     def to_file(self, filename):
         content = hex(self.e) + "+" +\
@@ -111,16 +119,15 @@ class RSAPrivateKey():
         with open(filename, 'w') as fout:
             fout.write(content)
 
-    def from_file(self, filename):
-        content = open(filename, 'r').read().split("+")
-        self.e = int(content[0], 16)
-        self.d = int(content[1], 16)
-        self.n = int(content[2], 16)
-
 class RSAPublicKey():
-    def __init__(self, e=0, n=0):
+    def __init__(self, e=0, n=0, from_file = False, filename = None):
         self.e = e
         self.n = n
+
+        if from_file and filename != None:
+            content = open(filename, 'r').read().split("+")
+            self.e = int(content[0], 16)
+            self.n = int(content[1], 16)
 
     def to_file(self, filename):
         content = hex(self.e) + "+" +\
@@ -128,28 +135,86 @@ class RSAPublicKey():
         with open(filename, 'w') as fout:
             fout.write(content)
 
-    def from_file(self, filename):
-        content = open(filename, 'r').read().split("+")
-        self.e = int(content[0], 16)
-        self.n = int(content[1], 16)
-
 # Encrypt, plaintext must be a bytes/bytearray object
-def encrypt(plaintext, RSA_pub):
+def process(data, RSA_key, encrypt = True):
     rsa = RSA()
-    rsa.set_public_key(RSA_pub)
+    # print(data)
+    if (encrypt):
+        rsa.set_public_key(RSA_key)
+        processed_data = data
+    else:
+        rsa.set_private_key(RSA_key)
+        processed_data = data[1:]
 
-    # ubah plaintext ke array of bit
+    should_append = False
+
+    # ubah data ke array of bit
+    data_bit = ''
+    for b in processed_data:
+        data_bit += '{0:08b}'.format(b)
+    # print('p',data_bit, len(data_bit))
 
     # split based on ukuran N -> convert ke bit, liat panjangnya
+    if encrypt:
+        load_size = len(bin(rsa.n)) - 3
+        store_size = load_size + (8 - load_size % 8)
+    else:
+        store_size = len(bin(rsa.n)) - 3
+        load_size = store_size + (8 - store_size % 8)
+    # print (load_size, store_size)
+
+    blocks = [data_bit[x:x+load_size] for x in range(0, \
+              len(data_bit), load_size)]
+    # print(blocks)
+    if encrypt:
+        if blocks[-1][0] == '0':
+            flag = '11111111'
+        else:
+            flag = '00000000'
+        print(flag)
+    else:
+        if data[0] == 255:
+            should_append = True
 
     # ubah hasil split itu ke integer, terus tinggal rsa.encrypt
-    ciphertext = None
-    return ciphertext
+    for i in range(len(blocks)):
+        # print('prev', int(blocks[i], 2))
+        if encrypt:
+            blocks[i] = rsa.encrypt(int(blocks[i], 2))
+        else:
+            blocks[i] = rsa.decrypt(int(blocks[i], 2))
+        # print('aftr',blocks[i], type(blocks[i]))
 
-# Encrypt, ciphertext must be a bytes/bytearray object
-def decrypt(ciphertext, RSA_priv):
-    plaintext = bytes(0)
-    return plaintext
+        if not encrypt and i == len(blocks) - 1:
+            blocks[i] = bin(blocks[i])[2:]
+        else:
+            template = '{0:0' + str(store_size) + 'b}'
+            blocks[i] = template.format(blocks[i])
+
+    # print(blocks)
+
+    # balikin lagi ke bytes
+    result_bit = ''.join(blocks)
+    if encrypt:
+        result_bit = flag + result_bit
+    else:
+        if should_append:
+            # print('a')
+            result_bit = ''.join(blocks[:-1])
+            while (len(result_bit) + len(blocks[-1])) % 8 != 0:
+                blocks[-1] = '0' + blocks[-1]
+            result_bit += blocks[-1]
+
+    # print('c:', result_bit, len(result_bit))
+
+    # l = BitArray(bin=result_bit)
+    #
+    # result = l.bytes
+    result = bytearray()
+    for i in range(0, len(result_bit), 8):
+        result.append(int(result_bit[i:i+8], 2))
+    # print(result)
+    return result
 
 def md5(text):
     h = hashlib.md5()
@@ -157,22 +222,34 @@ def md5(text):
     return h.hexdigest()
 
 if __name__ == '__main__':
-    plaintext = open('plaintext/1.txt', 'rb').read()
-    print(plaintext, md5(plaintext))
 
-    rsa = RSA()
-    pub, priv = rsa.generate_key()
-    ciphertext = encrypt(plaintext, pub)
-    plaintext = decrypt(ciphertext, priv)
-    print(plaintext, md5(plaintext))
+    #################################
+    # Plaintext from file
+    #################################
+    plaintext = open('README.md', 'rb').read()
+    print('plaintext', plaintext, 'len', len(plaintext))
+    print('md5', md5(plaintext), '\n')
+
+    pub = RSAPublicKey(from_file = True, filename = 'RSA/key.pub')
+    priv = RSAPrivateKey(from_file = True, filename = 'RSA/key.priv')
+
+    ciphertext = process(plaintext, pub, encrypt = True)
+    # print('\nn',pub.n,priv.n,'\n')
+    plaintext = process(ciphertext, priv, encrypt = False)
+
+    print('plaintext', plaintext)
+    print('md5', md5(plaintext))
 
     #################################
     # single block encrypt/decrypt
     #################################
     # rsa = RSA()
     # rsa.generate_key()
+    # rsa.priv.to_file('RSA/key.priv')
+    # rsa.pub.to_file('RSA/key.pub')
     # c = rsa.encrypt(2333)
     # print(rsa.decrypt(c))
+
     #################################
     # check key generation
     #################################
@@ -183,8 +260,7 @@ if __name__ == '__main__':
     # print(rsa.priv.d)
     # print(rsa.priv.n)
     #
-    # priv2 = RSAPrivateKey()
-    # priv2.from_file('RSA/key.priv')
+    # priv2 = RSAPrivateKey(from_file = True, filename = 'RSA/key.priv')
     # print(priv2.e)
     # print(priv2.d)
     # print(priv2.n)
@@ -194,7 +270,6 @@ if __name__ == '__main__':
     # print(rsa.pub.e)
     # print(rsa.pub.n)
     #
-    # pub2 = RSAPublicKey()
-    # pub2.from_file('RSA/key.pub')
+    # pub2 = RSAPublicKey(from_file = True, filename = 'RSA/key.pub')
     # print(pub2.e)
     # print(pub2.n)
