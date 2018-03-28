@@ -248,33 +248,33 @@ if __name__ == '__main__':
     #################################
     # single block encrypt/decrypt
     #################################
-    # rsa = RSA()
-    # rsa.generate_key()
-    # rsa.priv.to_file('RSA/key.priv')
-    # rsa.pub.to_file('RSA/key.pub')
-    # c = rsa.encrypt(2333)
-    # print(rsa.decrypt(c))
+    rsa = RSA()
+    rsa.generate_key()
+    rsa.priv.to_file('RSA/key.priv')
+    rsa.pub.to_file('RSA/key.pub')
+    c = rsa.encrypt(2333)
+    print(rsa.decrypt(c))
 
     #################################
     # check key generation
     #################################
-    # rsa = RSA()
-    # rsa.generate_key()
-    # rsa.priv.to_file('RSA/key.priv')
-    # print(rsa.priv.e)
-    # print(rsa.priv.d)
-    # print(rsa.priv.n)
-    #
-    # priv2 = RSAPrivateKey(from_file = True, filename = 'RSA/key.priv')
-    # print(priv2.e)
-    # print(priv2.d)
-    # print(priv2.n)
-    #
-    # print("--")
-    # rsa.pub.to_file('RSA/key.pub')
-    # print(rsa.pub.e)
-    # print(rsa.pub.n)
-    #
-    # pub2 = RSAPublicKey(from_file = True, filename = 'RSA/key.pub')
-    # print(pub2.e)
-    # print(pub2.n)
+    rsa = RSA()
+    rsa.generate_key()
+    rsa.priv.to_file('RSA/key.priv')
+    print(rsa.priv.e)
+    print(rsa.priv.d)
+    print(rsa.priv.n)
+
+    priv2 = RSAPrivateKey(from_file = True, filename = 'RSA/key.priv')
+    print(priv2.e)
+    print(priv2.d)
+    print(priv2.n)
+
+    print("--")
+    rsa.pub.to_file('RSA/key.pub')
+    print(rsa.pub.e)
+    print(rsa.pub.n)
+
+    pub2 = RSAPublicKey(from_file = True, filename = 'RSA/key.pub')
+    print(pub2.e)
+    print(pub2.n)
