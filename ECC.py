@@ -3,8 +3,6 @@ import array
 import pickle
 import binascii
 
-UNDEFINED = -999
-
 class ECC:
     # Constructor
     def __init__(self):
@@ -222,11 +220,10 @@ class ECC:
             point_array.append(self.decrypt(i[0], i[1], n))
 
         # Convert points to plaintext
-        plain_array = []
+        plain_array = bytearray()
         for i in point_array:
             plain_array.append(self.plain_point_to_byte(i))
-
-        return bytearray(plain_array)
+        return plain_array
 
 def test():
     # Initialize graph
@@ -263,12 +260,14 @@ def test():
         c_point_array.append(ecc.decrypt(i[0], i[1], n))
 
     # Convert points to plaintext
-    out_data = []
+    out_data = bytearray()
     for i in c_point_array:
-        out_data.append(ecc.plain_point_to_byte(i))
+        val = ecc.plain_point_to_byte(i)
+        if val > 255: val -= 255
+        out_data.append(val)
 
     # Write plaintext to file
-    ecc.write_plain_file("test3.txt", bytearray(out_data))
+    ecc.write_plain_file("test3.txt", out_data)
 
 if __name__ == '__main__':
     test()

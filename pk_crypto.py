@@ -74,7 +74,7 @@ def process_ecc(args):
         result = ecc.generate_pkey(int(n))
         open(filename_pub, 'wb').write(result)
         print("Public key: ", binascii.hexlify(result))
-
+        print("Size:", len(result), 'bytes')
 
     elif (args.mode == "encrypt"):
         if args.file == None:
@@ -89,6 +89,7 @@ def process_ecc(args):
         result = ecc.encrypt_data(data, args.public_key)
 
         print("Ciphertext:\n", binascii.hexlify(result))
+        print("Size:", len(result), 'bytes')
         with open(output, 'wb') as fout:
             fout.write(result)
 
@@ -105,6 +106,7 @@ def process_ecc(args):
         result = ecc.decrypt_data(data, int(n))
 
         print("Plaintext:\n", result)
+        print("Size:", len(result), 'bytes')
         with open(output, 'wb') as fout:
             fout.write(result)
 
