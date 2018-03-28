@@ -86,7 +86,7 @@ class ECC:
         c = pow(z, q, p)
 
         # Search for a solution
-        x = pow(a, (q + 1) / 2, p)
+        x = pow(a, (q + 1) // 2, p)
         t = pow(a, q, p)
         m = s
         while t != 1:
