@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 import argparse
 import rsa
+from ECC import ECC
+from Point import Point
 import binascii
 
 def create_arguments():
@@ -48,12 +50,63 @@ def process_rsa(args):
     else:
         raise Exception("Unsupported Mode " + args.cipher)
 
+def process_ecc(args):
+    a, b, p = input("Insert a, b, and p variable for elliptic graph:\n").split()
+    ecc = ECC(int(a), int(b), int(p))
+    x, y = input("Insert base point G value:\n").split()
+    ecc.set_g(Point(int(x),int(y)))
+    k = input("Insert k value:\n")
+    ecc.set_k(int(k))
+
+    if (args.mode == "keygen"):
+        filename_pub = args.public_key if args.public_key != None else "key.pub"
+        n = input("Insert n value:\n")
+        result = ecc.generate_pkey(int(n))
+        open(filename_pub, 'wb').write(result)
+        print("Public key: ", binascii.hexlify(result))
+
+
+    elif (args.mode == "encrypt"):
+        if args.file == None:
+            raise Exception("No file input on " + args.mode + "ion process")
+        if args.public_key == None:
+            raise Exception("No public key given on " + args.mode + "ion process")
+        output = args.output if args.output != None else "result.encrypted"
+
+        data = open(args.file, 'rb').read()
+        print("Plaintext:\n", data)
+
+        result = ecc.encrypt_data(data, args.public_key)
+
+        print("Ciphertext:\n", binascii.hexlify(result))
+        with open(output, 'wb') as fout:
+            fout.write(result)
+
+    elif (args.mode == "decrypt"):
+        if args.file == None:
+            raise Exception("No file input on " + args.mode + "ion process")
+        output = args.output if args.output != None else "result.encrypted"
+
+        n = input("Insert n value\n")
+
+        data = open(args.file, 'rb').read()
+        print("Ciphertext:\n", binascii.hexlify(data))
+
+        result = ecc.decrypt_data(data, int(n))
+
+        print("Plaintext:\n", result)
+        with open(output, 'wb') as fout:
+            fout.write(result)
+
+    else:
+        raise Exception("Unsupported Mode " + args.cipher)
+
 if __name__ == '__main__':
 
     args = create_arguments()
     if args.cipher == "RSA":
         process_rsa(args)
     elif args.cipher == "ECC":
-        pass
+        process_ecc(args)
     else:
         raise Exception("Unsupported Cipher " + args.cipher)

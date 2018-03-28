@@ -1,5 +1,5 @@
 from Point import Point
-import math
+import array
 import pickle
 import binascii
 
@@ -20,16 +20,32 @@ class ECC:
 
     # Setter
     def set_graph_var(self, _a, _b, _p):
-        self.a = _a
-        self.b = _b
-        self.p = _p
-        self.k = _k
+        if self.__is_prime(_p):
+            self.a = _a
+            self.b = _b
+            self.p = _p
+        else:
+            raise Exception(_p, " is not a prime")
 
     def set_k(self, _k):
         self.k = _k
 
     def set_g(self, _g):
         self.g = _g
+
+    def __is_prime(self, n):
+        if n <= 1:
+            return False
+        elif n <= 3:
+            return True
+        elif (n % 2) == 0 or (n % 3) == 0:
+            return False
+        i = 5
+        while (i * i) <= n:
+            if (n % i) == 0 or (n % (i + 2)) == 0:
+                return False
+            i = i + 6
+        return True
 
     # Get first point on graph (smallest x)
     def get_points(self):
@@ -108,7 +124,7 @@ class ECC:
 
     # Point addition
     def add_points(self, p1, p2):
-        grd = (p1.Y - p2.Y) * self.modinv(p1.X - p1.Y,self.p)
+        grd = (p2.Y - p1.Y) * pow(p2.X - p1.X, self.p-2, self.p)
         _x = (pow(grd,2) - p1.X - p2.X) % self.p
         _y = (grd * (p1.X - _x) - p1.Y) % self.p
         return Point(_x, _y)
@@ -119,7 +135,7 @@ class ECC:
 
     # Point duplication
     def duplicate_point(self, pnt):
-        grd = (3 * pnt.X + self.a) * self.modinv(2 * pnt.Y, self.p)
+        grd = (3 * pnt.X + self.a) * pow(2 * pnt.Y, self.p-2, self.p)
         _x = (pow(grd,2) - 2 * pnt.X) % self.p
         _y = (grd * (pnt.X - _x) - pnt.Y) % self.p
         return Point(_x, _y)
@@ -131,23 +147,7 @@ class ECC:
         elif n % 2 == 0:
             return self.iterate_point(self.duplicate_point(pnt), n/2)
         elif n % 2 == 1:
-            return self.add_points(pnt, self.iterate_point(self.duplicate_point(pnt), (n-1)/2))
-
-    # Calculate inverse modulo
-    def egcd(self, a, b):
-        if a == 0:
-            return (b, 0, 1)
-        else:
-            g, y, x = self.egcd(b % a, a)
-            return (g, x - (b // a) * y, y)
-
-    # Calculate inverse modulo
-    def modinv(self, a, m):
-        g, x, y = self.egcd(a, m)
-        if g != 1:
-            raise Exception('modular inverse does not exist')
-        else:
-            return x % m
+            return self.add_points(self.iterate_point(self.duplicate_point(pnt), (n-1)/2), pnt)
 
     # Read plaintext file and return byte array
     def read_plain_file(self, filename):
@@ -171,7 +171,6 @@ class ECC:
     def plain_byte_to_point(self, m):
         x = m*self.k + 1
         for i in range(m*self.k + self.k - 1):
-            print(x)
             check = self.prime_mod_sqrt(pow(x,3) + self.a * x + self.b, self.p)
             if (check != []):
                 return Point(x, check[0])
@@ -182,42 +181,77 @@ class ECC:
         return (pnt.X - 1) // self.k
 
     # Generate public key based on point G and n value
-    def gen_pkey(self, g, n):
-        return self.iterate_point(g, n)
+    def gen_pkey(self, n):
+        return self.iterate_point(self.g, n)
 
     # Encrypt plaintext point to 2 ciphertext points
-    def encrypt(self, g, ptext, pkey, k):
-        return [self.iterate_point(g, k), self.add_points(ptext, self.iterate_point(pkey, k))]
+    def encrypt(self, ptext, pkey):
+        return [self.add_points(ptext, self.iterate_point(pkey, self.k)), self.iterate_point(self.g, self.k)]
 
     # Decrypt 2 ciphertext points into plaintext point
     def decrypt(self, p1, p2, nkey):
-        return self.sub_points(p1, self.n_add(p2, nkey))
+        return self.sub_points(p1, self.iterate_point(p2, nkey))
 
-if __name__ == '__main__':
-    # TEST CONSTRUCTOR
+    def generate_pkey(self,n):
+        return pickle.dumps(self.iterate_point(self.g, n))
 
+    # Encrypt file
+    def encrypt_data(self, data, pkey_file):
+        # Read plaintext & public key
+        p_key = pickle.loads(open(pkey_file, 'rb').read())
+
+        # Convert plaintext to points
+        point_array = []
+        for i in data:
+            point_array.append(self.plain_byte_to_point(i))
+
+        # Encrypt point
+        crypt_array = []
+        for i in point_array:
+            crypt_array.append(self.encrypt(i, p_key))
+
+        return pickle.dumps(crypt_array)
+
+    # Decrypt file
+    def decrypt_data(self, data, n):
+        data = pickle.loads(data)
+
+        # Decrypt point
+        point_array = []
+        for i in data:
+            point_array.append(self.decrypt(i[0], i[1], n))
+
+        # Convert points to plaintext
+        plain_array = []
+        for i in point_array:
+            plain_array.append(self.plain_point_to_byte(i))
+
+        return bytearray(plain_array)
+
+def test():
     # Initialize graph
-    ecc = ECC(3,5,701)
-    ecc.set_k(3)
-    ecc.set_g(Point(0,648))
+    ecc = ECC(3, 5, 701)
+    ecc.set_k(2)
+    ecc.set_g(Point(0, 648))
 
     # Convert plaintext to points
-    in_data = ecc.read_plain_file("test.txt")
+    in_data = ecc.read_plain_file("plaintext/0.txt")
     p_point_array = []
     for i in in_data:
         p_point_array.append(ecc.plain_byte_to_point(i))
 
     # Define n and generate public key
-    n = 3
-    p_key = ecc.gen_pkey(ecc.g,3)
+    n = 11
+    p_key = ecc.gen_pkey(n)
+    print(binascii.hexlify(pickle.dumps(p_key)))
 
     # Encrypt point
     crypt_array = []
     for i in p_point_array:
-        crypt_array.append(ecc.encrypt(ecc.g,i,p_key,ecc.k))
+        crypt_array.append(ecc.encrypt(i, p_key, ))
 
     # Write ciphertext
-    ecc.write_cipher_file("test2.txt",crypt_array)
+    ecc.write_cipher_file("test2.txt", crypt_array)
     print(binascii.hexlify(pickle.dumps(crypt_array)))
 
     # Read ciphertext
@@ -226,12 +260,16 @@ if __name__ == '__main__':
     # Decrypt point
     c_point_array = []
     for i in c_data:
-        c_point_array.append(ecc.decrypt(i[0],i[1],n))
+        c_point_array.append(ecc.decrypt(i[0], i[1], n))
 
     # Convert points to plaintext
     out_data = []
     for i in c_point_array:
-        out_data.append(ecc.iterate_point(i))
+        out_data.append(ecc.plain_point_to_byte(i))
 
     # Write plaintext to file
-    ecc.write_plain_file("test3.txt",bytearray(out_data))
+    ecc.write_plain_file("test3.txt", bytearray(out_data))
+
+if __name__ == '__main__':
+    test()
+

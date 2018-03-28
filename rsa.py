@@ -4,7 +4,6 @@ import math
 import sys
 import base64
 import hashlib
-from bitstring import BitArray
 from pprint import pprint
 
 class RSA():
