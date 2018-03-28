@@ -2,6 +2,7 @@
 import argparse
 import rsa
 import binascii
+import time
 
 def create_arguments():
     """Create command line argument for this program.
@@ -22,26 +23,35 @@ def create_arguments():
     return parser.parse_args()
 
 def process_rsa(args):
-    if (args.mode == "keygen"):
+    if (args.mode.lower() == "keygen"):
         filename_pub = args.public_key if args.public_key != None else "key.pub"
         filename_priv = args.private_key if args.private_key != None else "key.priv"
-        key_length = args.key_length if args.key_length != None else 32
+        key_length = int(args.key_length) if args.key_length != None else 32
 
         rsa.keygen(filename_pub, filename_priv, length = key_length)
-    elif (args.mode == "encrypt") or (args.mode == "decrypt") :
+    elif (args.mode.lower() == "encrypt") or (args.mode.lower() == "decrypt") :
         if args.file == None:
             raise Exception("No file input on " + args.mode + "ion process")
-        if args.public_key == None:
+        if (args.mode.lower() == "encrypt") and args.public_key == None:
             raise Exception("No public key given on " + args.mode + "ion process")
+        if (args.mode.lower() == "decrypt") and args.private_key == None:
+            raise Exception("No private key given on " + args.mode + "ion process")
         output = args.output if args.output != None else "result.encrypted"
 
         data = open(args.file, 'rb').read()
         print("Plaintext:\n", data)
 
-        key = rsa.RSAPublicKey(from_file = True, filename = args.public_key)
-        result = rsa.process(encrypt=True, data=data, RSA_key=key)
+        if args.mode.lower() == "encrypt":
+            key = rsa.RSAPublicKey(from_file = True, filename = args.public_key)
+            enc = True
+        else:
+            key = rsa.RSAPrivateKey(from_file = True, filename = args.private_key)
+            enc = False
+
+        result = rsa.process(encrypt=enc, data=data, RSA_key=key)
 
         print("Ciphertext:\n", binascii.hexlify(result))
+        print("Size:", len(result), 'bytes')
         with open(output, 'wb') as fout:
             fout.write(result)
 
@@ -51,9 +61,13 @@ def process_rsa(args):
 if __name__ == '__main__':
 
     args = create_arguments()
-    if args.cipher == "RSA":
+
+    start = time.time()
+    if args.cipher.upper() == "RSA":
         process_rsa(args)
-    elif args.cipher == "ECC":
+    elif args.cipher.upper() == "ECC":
         pass
     else:
         raise Exception("Unsupported Cipher " + args.cipher)
+    end = time.time()
+    print("Time Elapsed", end - start, 'second')
